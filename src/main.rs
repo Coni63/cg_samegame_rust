@@ -13,4 +13,6 @@ fn main() {
 
     let board = Board::new(testcase.board);
     eprintln!("{:?}", board);
+
+    eprintln!("{:?}", board.compute_region(0, 0));
 }
