@@ -11,8 +11,9 @@ fn main() {
 
     eprintln!("{:?}", testcase);
 
-    let board = Board::new(testcase.board);
+    let mut board = Board::new(testcase.board);
     eprintln!("{:?}", board);
 
-    eprintln!("{:?}", board.compute_region(0, 0));
+    board.play(1, 0);
+    eprintln!("{:?}", board);
 }
