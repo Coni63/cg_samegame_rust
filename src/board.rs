@@ -110,6 +110,23 @@ impl Board {
         }
     }
 
+    pub fn compute_all_regions(&self) -> Vec<Vec<(usize, usize)>> {
+        let mut visited = [[false; 15]; 15];
+        let mut all_regions: Vec<Vec<(usize, usize)>> = Vec::new();
+        for r in 0..15 {
+            for c in 0..15 {
+                if !visited[r][c] && self.board[r][c] >= 0 {
+                    let region = self.compute_region(r, c);
+                    for (r2, c2) in region.iter() {
+                        visited[*r2][*c2] = true;
+                    }
+                    all_regions.push(region);
+                }
+            }
+        }
+        all_regions
+    }
+
     fn compute_region(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
         let mut ans = vec![(row, col)];
         let color = self.board[row][col];
@@ -147,14 +164,25 @@ impl Debug for Board {
         writeln!(f, "Score: {} - {:?}", self.score, self.color)?;
         for row in 0..15 {
             for col in 0..15 {
-                write!(
-                    f,
-                    "{}",
-                    &self.board[14 - row as usize][col as usize].to_string()
-                )?;
+                let char = if self.board[14 - row as usize][col as usize] < 0 {
+                    String::from('-')
+                } else {
+                    self.board[14 - row as usize][col as usize].to_string()
+                };
+                write!(f, "{}", char)?;
             }
             writeln!(f)?;
         }
         Ok(())
+    }
+}
+
+impl Clone for Board {
+    fn clone(&self) -> Board {
+        Board {
+            score: self.score,
+            color: self.color,
+            board: self.board,
+        }
     }
 }

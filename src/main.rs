@@ -14,6 +14,9 @@ fn main() {
     let mut board = Board::new(testcase.board);
     eprintln!("{:?}", board);
 
+    let all_regions = board.compute_all_regions();
+    eprintln!("All regions: {:?}", all_regions.len());
+
     board.play(1, 0);
     eprintln!("{:?}", board);
 }
