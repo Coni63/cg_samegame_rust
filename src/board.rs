@@ -32,6 +32,7 @@ impl Board {
 
     pub fn play(&mut self, row: usize, col: usize) {
         let picked_color = self.board[row][col];
+        // eprintln!("{}", picked_color);
         if picked_color < 0 {
             return;
         }
@@ -40,8 +41,14 @@ impl Board {
         for (r, c) in &region {
             self.board[*r][*c] = -1;
         }
+        // eprintln!("{:?} {}", self.color, region.len());
+        // eprintln!("{:?}", region);
         self.color[picked_color as usize] -= region.len() as u8;
-        self.score += u32::pow((region.len() - 2) as u32, 2);
+        // eprintln!("{:?} {}", self.color, region.len());
+
+        if region.len() >= 2 {
+            self.score += u32::pow((region.len() - 2) as u32, 2);
+        }
 
         self.apply_gravity(region);
     }
@@ -128,7 +135,7 @@ impl Board {
     }
 
     fn compute_region(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
-        let mut ans = vec![(row, col)];
+        let mut ans = vec![];
         let color = self.board[row][col];
         let mut visited = [[false; 15]; 15];
         let mut stack: VecDeque<(usize, usize)> = VecDeque::new();
@@ -140,6 +147,7 @@ impl Board {
                 continue;
             }
             visited[row][col] = true;
+            ans.push((row, col));
 
             for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                 let nx = row as i32 + dx;
@@ -151,7 +159,6 @@ impl Board {
                     && !visited[nx as usize][ny as usize]
                 {
                     stack.push_back((nx as usize, ny as usize));
-                    ans.push((nx as usize, ny as usize));
                 }
             }
         }
