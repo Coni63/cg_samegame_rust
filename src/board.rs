@@ -224,7 +224,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_board_clone() {
+    fn test_board_1() {
         let grid = [
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -255,6 +255,48 @@ mod tests {
         assert_eq!(board.score, 4873);
         assert_eq!(board.color, [0, 0, 0, 0, 0]);
 
+        assert!(board.is_over());
+    }
+
+    #[test]
+    fn test_board_2() {
+        let grid = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        ];
+
+        let mut board = Board::new(grid);
+        assert_eq!(board.score, 0);
+        assert_eq!(board.color, [45, 90, 60, 15, 15]);
+        assert!(!board.is_over());
+
+        board.play(0, 1);
+        board.play(0, 4);
+        board.play(0, 3);
+        board.play(0, 5);
+        board.play(0, 5);
+        board.play(0, 5);
+        board.play(0, 0);
+        board.play(0, 0);
+
+        eprintln!("{:?}", board);
+        eprintln!("{:?}", board.compute_all_regions());
+
+        assert_eq!(board.score, 11607);
+        assert_eq!(board.color, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
     }
 }
