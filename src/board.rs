@@ -2,12 +2,14 @@ use core::fmt;
 use std::{
     collections::VecDeque,
     fmt::{Debug, Formatter},
+    hash::{Hash, Hasher},
 };
 
 pub struct Board {
     board: [[i8; 15]; 15],
     score: u32,
     color: [u8; 5],
+    all_region: Option<Vec<Vec<(usize, usize)>>>,
 }
 
 impl Board {
@@ -23,6 +25,7 @@ impl Board {
             board,
             score: 0,
             color,
+            all_region: None,
         }
     }
 
@@ -51,6 +54,14 @@ impl Board {
         }
 
         self.apply_gravity(region);
+
+        if self.is_over() {
+            self.score += 1000;
+        }
+    }
+
+    pub fn is_over(&self) -> bool {
+        self.color.iter().sum::<u8>() == 0
     }
 
     fn apply_gravity(&mut self, region_removed: Vec<(usize, usize)>) {
@@ -118,6 +129,9 @@ impl Board {
     }
 
     pub fn compute_all_regions(&self) -> Vec<Vec<(usize, usize)>> {
+        if let Some(all_region) = &self.all_region {
+            return all_region.clone();
+        }
         let mut visited = [[false; 15]; 15];
         let mut all_regions: Vec<Vec<(usize, usize)>> = Vec::new();
         for r in 0..15 {
@@ -126,6 +140,9 @@ impl Board {
                     let region = self.compute_region(r, c);
                     for (r2, c2) in region.iter() {
                         visited[*r2][*c2] = true;
+                    }
+                    if region.len() < 2 {
+                        continue;
                     }
                     all_regions.push(region);
                 }
@@ -190,6 +207,54 @@ impl Clone for Board {
             score: self.score,
             color: self.color,
             board: self.board,
+            all_region: self.all_region.clone(),
         }
+    }
+}
+
+impl Hash for Board {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.board.hash(state);
+        self.score.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_board_clone() {
+        let grid = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        ];
+
+        let mut board = Board::new(grid);
+        assert_eq!(board.score, 0);
+        assert_eq!(board.color, [45, 90, 60, 15, 15]);
+        assert!(!board.is_over());
+
+        for _ in 0..12 {
+            board.play(0, 0);
+        }
+
+        assert_eq!(board.score, 4873);
+        assert_eq!(board.color, [0, 0, 0, 0, 0]);
+
+        assert!(board.is_over());
     }
 }

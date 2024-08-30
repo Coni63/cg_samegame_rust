@@ -1,8 +1,12 @@
-use std::collections::VecDeque;
+use std::{
+    collections::{HashSet, VecDeque},
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 use crate::board::Board;
 
 pub fn solve(initial_state: &Board) -> String {
+    let mut visited: HashSet<u64> = HashSet::new();
     let mut Q: VecDeque<(String, Board)> = VecDeque::new();
     Q.push_back((String::new(), initial_state.clone()));
 
@@ -22,6 +26,15 @@ pub fn solve(initial_state: &Board) -> String {
             let mut copy = board.clone();
             let (r, c) = region.first().unwrap();
             copy.play(*r, *c);
+
+            let mut hasher = DefaultHasher::new();
+            board.hash(&mut hasher);
+            let hash_value = hasher.finish();
+            if visited.contains(&hash_value) {
+                continue;
+            }
+            visited.insert(hash_value);
+
             let mut copy_actions = actions.clone();
             copy_actions.push_str(&format!("{} {};", c, r));
             // eprintln!("{:?}", copy);
