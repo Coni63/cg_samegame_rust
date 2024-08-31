@@ -61,26 +61,41 @@ impl Board {
         self.score += u32::pow((region.len() - 2) as u32, 2);
         self.color_counts[picked_color as usize] -= region.len() as u8;
 
-        self.apply_gravity(region);
+        let (start_x, start_y, end_x) = self.get_region_boundaries(region);
+        self.apply_gravity(start_x, start_y, end_x);
+        self.remove_empty_columns(start_x);
 
         // if the board is fully empty, add 1000 points
-        if self.color_counts.iter().sum::<u8>() == 0 {
+        if self.is_empty() {
             self.score += 1000;
         }
     }
 
     pub fn is_over(&self) -> bool {
         // this is not really True, we need to check that there is no group of 2 or more
-        self.color_counts.iter().sum::<u8>() == 0
+        if self.is_empty() {
+            return true;
+        }
+
+        false
     }
 
-    fn apply_gravity(&mut self, region_removed: Vec<usize>) {
+    fn is_empty(&self) -> bool {
+        self.board[Board::get_index(0, 0)] == 0
+    }
+
+    fn has_no_more_regions(&self) -> bool {
+        // TODO: implement this
+        true
+    }
+
+    fn get_region_boundaries(&self, region_removed: Vec<usize>) -> (usize, usize, usize) {
         let mut start_x = GAME_SIZE;
         let mut end_x = 0;
         let mut start_y = GAME_SIZE;
 
         for &index in &region_removed {
-            let (x, y) = Board::get_x_y(index);
+            let (x, y) = Board::to_coordinates(index);
             if y < start_y {
                 start_y = y;
             }
@@ -92,9 +107,17 @@ impl Board {
             }
         }
 
+        (start_x, start_y, end_x)
+    }
+
+    fn apply_gravity(&mut self, start_x: usize, start_y: usize, end_x: usize) {
         for x in start_x..=end_x {
             let mut cursor = Board::get_index(x, start_y);
             for y in start_y..15 {
+                if self.board[cursor] >= 0 {
+                    cursor += BOARD_SIZE;
+                    continue;
+                }
                 let idx = Board::get_index(x, y);
                 if self.board[idx] >= 0 {
                     self.board[cursor] = self.board[idx];
@@ -103,8 +126,6 @@ impl Board {
                 }
             }
         }
-
-        self.remove_empty_columns(start_x);
     }
 
     fn remove_empty_columns(&mut self, start_x: usize) {
@@ -118,10 +139,8 @@ impl Board {
                         self.board[idx_cur1] = self.board[idx_cur2];
                         self.board[idx_cur2] = -1;
                     }
-                    cursor_1_x += 1;
-                } else {
-                    cursor_1_x += 1;
                 }
+                cursor_1_x += 1;
             }
         }
     }
@@ -135,27 +154,24 @@ impl Board {
         stack.push_back(start_index);
 
         while let Some(index) = stack.pop_front() {
-            if visited[index] || self.board[index] != color {
+            if visited[index] {
                 continue;
             }
-
             visited[index] = true;
             region.push(index);
 
-            let row = index >> 4; // Equivalent to index / 16
-            let col = index & ROW_MASK; // Equivalent to index % 16
+            let (x, y) = Board::to_coordinates(index);
 
-            if row > 0 {
-                stack.push_back(index - BOARD_SIZE);
-            }
-            if row < GAME_SIZE - 1 {
-                stack.push_back(index + BOARD_SIZE);
-            }
-            if col > 0 {
-                stack.push_back(index - 1);
-            }
-            if col < GAME_SIZE - 1 {
-                stack.push_back(index + 1);
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+
+                if nx >= 0 && nx < GAME_SIZE as i32 && ny >= 0 && ny < GAME_SIZE as i32 {
+                    let neighbor = Board::get_index(nx as usize, ny as usize);
+                    if self.board[neighbor] == color {
+                        stack.push_back(neighbor);
+                    }
+                }
             }
         }
 
@@ -166,7 +182,7 @@ impl Board {
         (y << 4) | x // row * 16 + col
     }
 
-    pub fn get_x_y(index: usize) -> (usize, usize) {
+    pub fn to_coordinates(index: usize) -> (usize, usize) {
         let y = index >> 4;
         let x = index & 0b1111;
         (x, y)
@@ -364,17 +380,22 @@ mod tests {
         assert_eq!(board.color_counts, [63, 45, 45, 36, 36]);
         assert!(!board.is_over());
 
-        board.play(6, 3);
-        board.play(12, 6);
-        board.play(12, 3);
-        board.play(3, 9);
-        board.play(3, 3);
-        board.play(3, 0);
-        board.play(9, 0);
-        board.play(3, 3);
-        board.play(0, 3);
+        board.play(0, 14);
+        board.play(6, 11);
+        board.play(6, 11);
+        board.play(3, 5);
+        board.play(0, 8);
+        board.play(6, 5);
+        board.play(6, 8);
+        board.play(6, 5);
+        board.play(0, 5);
+        board.play(0, 5);
+        board.play(6, 5);
+        board.play(6, 5);
+        board.play(0, 2);
+        board.play(0, 2);
 
-        assert_eq!(board.score, 4033);
+        assert_eq!(board.score, 5421);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
     }
