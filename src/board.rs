@@ -5,27 +5,36 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+const BOARD_SIZE: usize = 16; // Using 16 for bitwise operations
+const GAME_SIZE: usize = 15; // Actual game size
+const TOTAL_CELLS: usize = BOARD_SIZE * BOARD_SIZE;
+const ROW_MASK: usize = BOARD_SIZE - 1; // 0b1111 for bitwise AND
+
 pub struct Board {
-    board: [[i8; 15]; 15],
+    board: [i8; TOTAL_CELLS],
     score: u32,
-    color: [u8; 5],
-    all_region: Option<Vec<Vec<(usize, usize)>>>,
+    color_counts: [u8; 5],
 }
 
 impl Board {
-    pub fn new(board: [[i8; 15]; 15]) -> Board {
-        let mut color = [0; 5];
-        for i in 0..15 {
-            for j in 0..15 {
-                color[board[i][j] as usize] += 1;
+    pub fn new(initial_board: [[i8; GAME_SIZE]; GAME_SIZE]) -> Board {
+        let mut board = [-1; TOTAL_CELLS]; // Initialize all cells as empty
+        let mut color_counts = [0; 5];
+
+        for (y, row) in initial_board.iter().enumerate() {
+            for (x, &cell) in row.iter().enumerate() {
+                if cell >= 0 {
+                    let index = Board::get_index(x, y);
+                    board[index] = cell;
+                    color_counts[cell as usize] += 1;
+                }
             }
         }
 
         Board {
             board,
             score: 0,
-            color,
-            all_region: None,
+            color_counts,
         }
     }
 
@@ -33,165 +42,155 @@ impl Board {
         self.score
     }
 
-    pub fn play(&mut self, row: usize, col: usize) {
-        let picked_color = self.board[row][col];
-        // eprintln!("{}", picked_color);
+    pub fn play(&mut self, x: usize, y: usize) {
+        let index = Board::get_index(x, y);
+        let picked_color = self.board[index];
         if picked_color < 0 {
             return;
         }
 
-        let region = self.compute_region(row, col);
-        for (r, c) in &region {
-            self.board[*r][*c] = -1;
+        let region = self.compute_region_index(index);
+        if region.len() < 2 {
+            return;
         }
-        // eprintln!("{:?} {}", self.color, region.len());
-        // eprintln!("{:?}", region);
-        self.color[picked_color as usize] -= region.len() as u8;
-        // eprintln!("{:?} {}", self.color, region.len());
 
-        if region.len() >= 2 {
-            self.score += u32::pow((region.len() - 2) as u32, 2);
+        for &i in &region {
+            self.board[i] = -1;
         }
+
+        self.score += u32::pow((region.len() - 2) as u32, 2);
+        self.color_counts[picked_color as usize] -= region.len() as u8;
 
         self.apply_gravity(region);
 
-        if self.is_over() {
+        // if the board is fully empty, add 1000 points
+        if self.color_counts.iter().sum::<u8>() == 0 {
             self.score += 1000;
         }
     }
 
     pub fn is_over(&self) -> bool {
-        self.color.iter().sum::<u8>() == 0
+        // this is not really True, we need to check that there is no group of 2 or more
+        self.color_counts.iter().sum::<u8>() == 0
     }
 
-    fn apply_gravity(&mut self, region_removed: Vec<(usize, usize)>) {
-        // gravity is toward the top (row 14 is the top row)
-        let mut start_col: usize = 15;
-        let mut end_col: usize = 0;
-        let mut start_row: usize = 15;
+    fn apply_gravity(&mut self, region_removed: Vec<usize>) {
+        let mut start_x = GAME_SIZE;
+        let mut end_x = 0;
+        let mut start_y = GAME_SIZE;
 
-        for (r, c) in region_removed {
-            if r < start_row {
-                start_row = r;
+        for &index in &region_removed {
+            let (x, y) = Board::get_x_y(index);
+            if y < start_y {
+                start_y = y;
             }
-            if c < start_col {
-                start_col = c;
+            if x < start_x {
+                start_x = x;
             }
-            if c > end_col {
-                end_col = c;
+            if x > end_x {
+                end_x = x;
             }
         }
-        // eprintln!(
-        //     "start_row: {}, start_col: {}, end_col: {}",
-        //     start_row, start_col, end_col
-        // );
 
-        for c in start_col..=end_col {
-            let mut cursor = start_row;
-            for r in start_row..15 {
-                if self.board[r][c] >= 0 {
-                    self.board[cursor][c] = self.board[r][c];
-                    self.board[r][c] = -1;
-                    cursor += 1;
+        for x in start_x..=end_x {
+            let mut cursor = Board::get_index(x, start_y);
+            for y in start_y..15 {
+                let idx = Board::get_index(x, y);
+                if self.board[idx] >= 0 {
+                    self.board[cursor] = self.board[idx];
+                    self.board[idx] = -1;
+                    cursor += BOARD_SIZE;
                 }
             }
         }
 
-        self.remove_column(start_col, end_col);
+        self.remove_empty_columns(start_x);
     }
 
-    fn remove_column(&mut self, start_col: usize, end_col: usize) {
-        let mut offset = 0;
-        for c in start_col..15 {
-            let mut empty = true;
-            for r in 0..15 {
-                if self.board[r][c] >= 0 {
-                    empty = false;
-                    break;
-                }
-            }
-
-            if empty {
-                offset += 1;
-            } else {
-                for r in start_col..15 {
-                    let temp = self.board[r][c];
-                    self.board[r][c] = self.board[r][c - offset];
-                    self.board[r][c - offset] = temp;
-                }
-            }
-
-            if c == end_col && offset == 0 {
-                // if we reach the end of the impacted area and there is no empty space, there is no need to remove anything
-                return;
-            }
-        }
-    }
-
-    pub fn compute_all_regions(&self) -> Vec<Vec<(usize, usize)>> {
-        if let Some(all_region) = &self.all_region {
-            return all_region.clone();
-        }
-        let mut visited = [[false; 15]; 15];
-        let mut all_regions: Vec<Vec<(usize, usize)>> = Vec::new();
-        for r in 0..15 {
-            for c in 0..15 {
-                if !visited[r][c] && self.board[r][c] >= 0 {
-                    let region = self.compute_region(r, c);
-                    for (r2, c2) in region.iter() {
-                        visited[*r2][*c2] = true;
+    fn remove_empty_columns(&mut self, start_x: usize) {
+        let mut cursor_1_x = start_x;
+        for cursor_2_x in start_x..GAME_SIZE {
+            if self.get(cursor_2_x, 0) >= 0 {
+                if cursor_2_x > cursor_1_x {
+                    for y in 0..15 {
+                        let idx_cur1 = Board::get_index(cursor_1_x, y);
+                        let idx_cur2 = Board::get_index(cursor_2_x, y);
+                        self.board[idx_cur1] = self.board[idx_cur2];
+                        self.board[idx_cur2] = -1;
                     }
-                    if region.len() < 2 {
-                        continue;
-                    }
-                    all_regions.push(region);
+                    cursor_1_x += 1;
+                } else {
+                    cursor_1_x += 1;
                 }
             }
         }
-        all_regions
     }
 
-    fn compute_region(&self, row: usize, col: usize) -> Vec<(usize, usize)> {
-        let mut ans = vec![];
-        let color = self.board[row][col];
-        let mut visited = [[false; 15]; 15];
-        let mut stack: VecDeque<(usize, usize)> = VecDeque::new();
-        stack.push_back((row, col));
+    pub fn compute_region_index(&self, start_index: usize) -> Vec<usize> {
+        let mut region = Vec::new();
+        let mut stack = VecDeque::new();
+        let mut visited = [false; TOTAL_CELLS];
+        let color = self.board[start_index];
 
-        while !stack.is_empty() {
-            let (row, col) = stack.pop_front().unwrap();
-            if visited[row][col] {
+        stack.push_back(start_index);
+
+        while let Some(index) = stack.pop_front() {
+            if visited[index] || self.board[index] != color {
                 continue;
             }
-            visited[row][col] = true;
-            ans.push((row, col));
 
-            for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-                let nx = row as i32 + dx;
-                let ny = col as i32 + dy;
+            visited[index] = true;
+            region.push(index);
 
-                if (0..15).contains(&nx)
-                    && (0..15).contains(&ny)
-                    && self.board[nx as usize][ny as usize] == color
-                    && !visited[nx as usize][ny as usize]
-                {
-                    stack.push_back((nx as usize, ny as usize));
-                }
+            let row = index >> 4; // Equivalent to index / 16
+            let col = index & ROW_MASK; // Equivalent to index % 16
+
+            if row > 0 {
+                stack.push_back(index - BOARD_SIZE);
+            }
+            if row < GAME_SIZE - 1 {
+                stack.push_back(index + BOARD_SIZE);
+            }
+            if col > 0 {
+                stack.push_back(index - 1);
+            }
+            if col < GAME_SIZE - 1 {
+                stack.push_back(index + 1);
             }
         }
-        ans
+
+        region
+    }
+
+    fn get_index(x: usize, y: usize) -> usize {
+        (y << 4) | x // row * 16 + col
+    }
+
+    pub fn get_x_y(index: usize) -> (usize, usize) {
+        let y = index >> 4;
+        let x = index & 0b1111;
+        (x, y)
+    }
+
+    pub fn get(&self, x: usize, y: usize) -> i8 {
+        self.board[Board::get_index(x, y)]
+    }
+
+    pub fn compute_region(&self, x: usize, y: usize) -> Vec<usize> {
+        let start_index = Board::get_index(x, y);
+        self.compute_region_index(start_index)
     }
 }
 
 impl Debug for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        writeln!(f, "Score: {} - {:?}", self.score, self.color)?;
-        for row in 0..15 {
-            for col in 0..15 {
-                let char = if self.board[14 - row as usize][col as usize] < 0 {
+        writeln!(f, "Score: {} - {:?}", self.score, self.color_counts)?;
+        for y in 0..15 {
+            for x in 0..15 {
+                let char = if self.get(x, 14 - y) < 0 {
                     String::from('-')
                 } else {
-                    self.board[14 - row as usize][col as usize].to_string()
+                    self.get(x, 14 - y).to_string()
                 };
                 write!(f, "{}", char)?;
             }
@@ -205,9 +204,8 @@ impl Clone for Board {
     fn clone(&self) -> Board {
         Board {
             score: self.score,
-            color: self.color,
+            color_counts: self.color_counts,
             board: self.board,
-            all_region: self.all_region.clone(),
         }
     }
 }
@@ -244,17 +242,20 @@ mod tests {
         ];
 
         let mut board = Board::new(grid);
+
+        // eprintln!("{:?}", board);
+
         assert_eq!(board.score, 0);
-        assert_eq!(board.color, [45, 90, 60, 15, 15]);
+        assert_eq!(board.color_counts, [45, 90, 60, 15, 15]);
         assert!(!board.is_over());
 
         for _ in 0..12 {
             board.play(0, 0);
         }
+        eprintln!("{:?}", board);
 
         assert_eq!(board.score, 4873);
-        assert_eq!(board.color, [0, 0, 0, 0, 0]);
-
+        assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
     }
 
@@ -280,7 +281,7 @@ mod tests {
 
         let mut board = Board::new(grid);
         assert_eq!(board.score, 0);
-        assert_eq!(board.color, [45, 90, 60, 15, 15]);
+        assert_eq!(board.color_counts, [45, 90, 60, 15, 15]);
         assert!(!board.is_over());
 
         board.play(0, 1);
@@ -292,11 +293,89 @@ mod tests {
         board.play(0, 0);
         board.play(0, 0);
 
-        eprintln!("{:?}", board);
-        eprintln!("{:?}", board.compute_all_regions());
-
         assert_eq!(board.score, 11607);
-        assert_eq!(board.color, [0, 0, 0, 0, 0]);
+        assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
+        assert!(board.is_over());
+    }
+
+    #[test]
+    fn test_board_3() {
+        let grid = [
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+            [1, 2, 2, 0, 0, 1, 1, 4, 3, 3, 4, 1, 1, 2, 0],
+        ];
+
+        let mut board = Board::new(grid);
+        assert_eq!(board.score, 0);
+        assert_eq!(board.color_counts, [45, 75, 45, 30, 30]);
+        assert!(!board.is_over());
+
+        board.play(5, 0);
+        board.play(1, 0);
+        board.play(1, 0);
+        board.play(2, 0);
+        board.play(2, 0);
+        board.play(0, 0);
+        board.play(0, 0);
+        board.play(0, 0);
+
+        eprintln!("{:?}", board);
+
+        assert_eq!(board.score, 7107);
+        assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
+        assert!(board.is_over());
+    }
+
+    #[test]
+    fn test_board_4() {
+        let grid = [
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+        ];
+
+        let mut board = Board::new(grid);
+        assert_eq!(board.score, 0);
+        assert_eq!(board.color_counts, [63, 45, 45, 36, 36]);
+        assert!(!board.is_over());
+
+        board.play(6, 3);
+        board.play(12, 6);
+        board.play(12, 3);
+        board.play(3, 9);
+        board.play(3, 3);
+        board.play(3, 0);
+        board.play(9, 0);
+        board.play(3, 3);
+        board.play(0, 3);
+
+        assert_eq!(board.score, 4033);
+        assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
     }
 }
