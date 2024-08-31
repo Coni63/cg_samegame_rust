@@ -85,8 +85,7 @@ impl Board {
     }
 
     fn has_no_more_regions(&self) -> bool {
-        // TODO: implement this
-        true
+        self.compute_all_regions().is_empty()
     }
 
     fn get_region_boundaries(&self, region_removed: Vec<usize>) -> (usize, usize, usize) {
@@ -146,9 +145,17 @@ impl Board {
     }
 
     pub fn compute_region_index(&self, start_index: usize) -> Vec<usize> {
+        let mut visited = [false; TOTAL_CELLS];
+        self.inner_compute_region(start_index, &mut visited)
+    }
+
+    fn inner_compute_region(
+        &self,
+        start_index: usize,
+        visited: &mut [bool; TOTAL_CELLS],
+    ) -> Vec<usize> {
         let mut region = Vec::new();
         let mut stack = VecDeque::new();
-        let mut visited = [false; TOTAL_CELLS];
         let color = self.board[start_index];
 
         stack.push_back(start_index);
@@ -176,6 +183,31 @@ impl Board {
         }
 
         region
+    }
+
+    pub fn compute_all_regions(&self) -> Vec<Vec<usize>> {
+        let mut visited = [false; TOTAL_CELLS];
+        let mut all_regions: Vec<Vec<usize>> = Vec::new();
+
+        for x in 0..15 {
+            for y in 0..15 {
+                let index = Board::get_index(x, y);
+                if visited[index] {
+                    continue;
+                }
+
+                if self.board[index] < 0 {
+                    break;
+                }
+
+                let region = self.inner_compute_region(index, &mut visited);
+                if region.len() < 2 {
+                    continue;
+                }
+                all_regions.push(region);
+            }
+        }
+        all_regions
     }
 
     fn get_index(x: usize, y: usize) -> usize {
@@ -398,5 +430,30 @@ mod tests {
         assert_eq!(board.score, 5421);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
+    }
+
+    #[test]
+    fn test_all_regions() {
+        let grid = [
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [2, 2, 2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [4, 4, 4, 1, 1, 1, 3, 3, 3, 2, 2, 2, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [0, 0, 0, 0, 0, 0, 4, 4, 4, 1, 1, 1, 4, 4, 4],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [1, 1, 1, 3, 3, 3, 2, 2, 2, 3, 3, 3, 0, 0, 0],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+            [4, 4, 4, 0, 0, 0, 3, 3, 3, 1, 1, 1, 2, 2, 2],
+        ];
+
+        let mut board = Board::new(grid);
+
+        assert_eq!(board.compute_all_regions().len(), 23);
     }
 }
