@@ -42,8 +42,7 @@ impl Board {
         self.score
     }
 
-    pub fn play(&mut self, x: usize, y: usize) {
-        let index = Board::get_index(x, y);
+    pub fn play_index(&mut self, index: usize) {
         let picked_color = self.board[index];
         if picked_color < 0 {
             return;
@@ -71,6 +70,11 @@ impl Board {
         }
     }
 
+    pub fn play(&mut self, x: usize, y: usize) {
+        let index = Board::get_index(x, y);
+        self.play_index(index)
+    }
+
     pub fn is_over(&self) -> bool {
         // this is not really True, we need to check that there is no group of 2 or more
         if self.is_empty() {
@@ -81,7 +85,7 @@ impl Board {
     }
 
     fn is_empty(&self) -> bool {
-        self.board[Board::get_index(0, 0)] == 0
+        self.board[Board::get_index(0, 0)] == -1
     }
 
     fn has_no_more_regions(&self) -> bool {
@@ -94,7 +98,7 @@ impl Board {
         let mut start_y = GAME_SIZE;
 
         for &index in &region_removed {
-            let (x, y) = Board::to_coordinates(index);
+            let (x, y) = Board::to_coordinates(&index);
             if y < start_y {
                 start_y = y;
             }
@@ -167,7 +171,7 @@ impl Board {
             visited[index] = true;
             region.push(index);
 
-            let (x, y) = Board::to_coordinates(index);
+            let (x, y) = Board::to_coordinates(&index);
 
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
                 let nx = x as i32 + dx;
@@ -214,7 +218,7 @@ impl Board {
         (y << 4) | x // row * 16 + col
     }
 
-    pub fn to_coordinates(index: usize) -> (usize, usize) {
+    pub fn to_coordinates(index: &usize) -> (usize, usize) {
         let y = index >> 4;
         let x = index & 0b1111;
         (x, y)
@@ -426,6 +430,8 @@ mod tests {
         board.play(6, 5);
         board.play(0, 2);
         board.play(0, 2);
+
+        eprintln!("{:?}", board);
 
         assert_eq!(board.score, 5421);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
