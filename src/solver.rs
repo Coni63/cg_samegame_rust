@@ -13,19 +13,26 @@ pub fn solve(initial_state: &Board) -> String {
     let mut best_solution: (String, Board) = (String::new(), initial_state.clone());
     while !Q.is_empty() {
         let (actions, board) = Q.pop_front().unwrap();
-        // if Q.len() % 100 == 0 {
-        //     eprintln!("{:?}", board);
-        // }
+
         let all_regions = board.compute_all_regions();
-        if all_regions.is_empty() && board.get_score() > best_solution.1.get_score() {
-            best_solution = (actions.clone(), board.clone());
-            eprintln!("New Best Socre {} : {}", board.get_score(), actions);
+        if all_regions.is_empty() {
+            if board.get_score() > best_solution.1.get_score() {
+                best_solution = (actions.clone(), board.clone());
+                eprintln!("New Best Socre {} : {}", board.get_score(), actions);
+            } else {
+                eprintln!("New End {} : {}", board.get_score(), actions);
+            }
+            continue;
         }
 
         for region in all_regions {
             let mut copy = board.clone();
+            let mut copy_actions = actions.clone();
+
             let idx = region.first().unwrap();
-            copy.play_index(*idx);
+            let (x, y) = Board::to_coordinates(idx);
+            copy.play(x, y);
+            copy_actions.push_str(&format!("{} {};", x, y));
 
             let mut hasher = DefaultHasher::new();
             copy.hash(&mut hasher);
@@ -35,10 +42,8 @@ pub fn solve(initial_state: &Board) -> String {
             }
             visited.insert(hash_value);
 
-            let mut copy_actions = actions.clone();
+            eprintln!("{} : {}", copy.get_score(), copy_actions);
 
-            let (x, y) = Board::to_coordinates(idx);
-            copy_actions.push_str(&format!("{} {};", y, x));
             // eprintln!("{:?}", copy);
             Q.push_back((copy_actions, copy));
         }
