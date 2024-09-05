@@ -15,13 +15,9 @@ pub fn solve(initial_state: &Board) -> String {
         let (actions, board) = Q.pop_front().unwrap();
 
         let all_regions = board.compute_all_regions();
-        if all_regions.is_empty() {
-            if board.get_score() > best_solution.1.get_score() {
-                best_solution = (actions.clone(), board.clone());
-                eprintln!("New Best Socre {} : {}", board.get_score(), actions);
-            } else {
-                eprintln!("New End {} : {}", board.get_score(), actions);
-            }
+        if all_regions.is_empty() && board.get_score() > best_solution.1.get_score() {
+            best_solution = (actions.clone(), board.clone());
+            eprintln!("New Best Socre {} : {}", board.get_score(), actions);
             continue;
         }
 
@@ -31,7 +27,7 @@ pub fn solve(initial_state: &Board) -> String {
 
             let idx = region.first().unwrap();
             let (x, y) = Board::to_coordinates(idx);
-            copy.play(x, y);
+            copy.play_region(&region);
             copy_actions.push_str(&format!("{} {};", x, y));
 
             let mut hasher = DefaultHasher::new();
@@ -42,9 +38,6 @@ pub fn solve(initial_state: &Board) -> String {
             }
             visited.insert(hash_value);
 
-            eprintln!("{} : {}", copy.get_score(), copy_actions);
-
-            // eprintln!("{:?}", copy);
             Q.push_back((copy_actions, copy));
         }
 

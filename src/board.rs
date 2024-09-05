@@ -60,7 +60,7 @@ impl Board {
         self.score += u32::pow((region.len() - 2) as u32, 2);
         self.color_counts[picked_color as usize] -= region.len() as u8;
 
-        let (start_x, start_y, end_x) = self.get_region_boundaries(region);
+        let (start_x, start_y, end_x) = self.get_region_boundaries(&region);
         self.apply_gravity(start_x, start_y, end_x);
         self.remove_empty_columns(start_x);
 
@@ -75,7 +75,28 @@ impl Board {
         self.play_index(index)
     }
 
-    pub fn play_region(&mut self, region: &[usize]) {}
+    pub fn play_region(&mut self, region: &[usize]) {
+        let picked_color = self.board[region[0]];
+        if picked_color < 0 {
+            return;
+        }
+
+        for i in region {
+            self.board[*i] = -1;
+        }
+
+        self.score += u32::pow((region.len() - 2) as u32, 2);
+        self.color_counts[picked_color as usize] -= region.len() as u8;
+
+        let (start_x, start_y, end_x) = self.get_region_boundaries(region);
+        self.apply_gravity(start_x, start_y, end_x);
+        self.remove_empty_columns(start_x);
+
+        // if the board is fully empty, add 1000 points
+        if self.is_empty() {
+            self.score += 1000;
+        }
+    }
 
     pub fn is_over(&self) -> bool {
         // this is not really True, we need to check that there is no group of 2 or more
@@ -94,12 +115,12 @@ impl Board {
         self.compute_all_regions().is_empty()
     }
 
-    fn get_region_boundaries(&self, region_removed: Vec<usize>) -> (usize, usize, usize) {
+    fn get_region_boundaries(&self, region_removed: &[usize]) -> (usize, usize, usize) {
         let mut start_x = GAME_SIZE;
         let mut end_x = 0;
         let mut start_y = GAME_SIZE;
 
-        for &index in &region_removed {
+        for &index in region_removed {
             let (x, y) = Board::to_coordinates(&index);
             if y < start_y {
                 start_y = y;

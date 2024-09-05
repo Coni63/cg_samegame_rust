@@ -43,9 +43,11 @@ fn string_to_2d_array(input: &str) -> [[i8; 15]; 15] {
 
     for (i, line) in input.lines().enumerate() {
         for (j, num) in line.split_whitespace().enumerate() {
-            board[i][j] = num.parse().unwrap();
+            board[14 - i][j] = num.parse().unwrap();
         }
     }
+
+    eprintln!("{:?}", board);
 
     board
 }
