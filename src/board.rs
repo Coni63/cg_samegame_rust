@@ -53,21 +53,7 @@ impl Board {
             return;
         }
 
-        for &i in &region {
-            self.board[i] = -1;
-        }
-
-        self.score += u32::pow((region.len() - 2) as u32, 2);
-        self.color_counts[picked_color as usize] -= region.len() as u8;
-
-        let (start_x, start_y, end_x) = self.get_region_boundaries(&region);
-        self.apply_gravity(start_x, start_y, end_x);
-        self.remove_empty_columns(start_x);
-
-        // if the board is fully empty, add 1000 points
-        if self.is_empty() {
-            self.score += 1000;
-        }
+        self.play_region(&region);
     }
 
     pub fn play(&mut self, x: usize, y: usize) {
@@ -104,7 +90,7 @@ impl Board {
             return true;
         }
 
-        false
+        self.has_no_more_regions()
     }
 
     fn is_empty(&self) -> bool {
@@ -294,6 +280,8 @@ impl Hash for Board {
 
 #[cfg(test)]
 mod tests {
+    use std::hash::DefaultHasher;
+
     use super::*;
 
     fn get_board(level: i32) -> Board {
@@ -366,7 +354,6 @@ mod tests {
         for _ in 0..12 {
             board.play(0, 0);
         }
-        eprintln!("{:?}", board);
 
         assert_eq!(board.score, 4873);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
@@ -410,8 +397,6 @@ mod tests {
         board.play(0, 0);
         board.play(0, 0);
 
-        eprintln!("{:?}", board);
-
         assert_eq!(board.score, 7107);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
@@ -439,8 +424,6 @@ mod tests {
         board.play(0, 2);
         board.play(0, 2);
 
-        eprintln!("{:?}", board);
-
         assert_eq!(board.score, 5421);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
         assert!(board.is_over());
@@ -448,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_all_regions() {
-        let mut board = get_board(3);
+        let board = get_board(3);
 
         assert_eq!(board.compute_all_regions().len(), 23);
     }
@@ -458,8 +441,6 @@ mod tests {
         let mut board = get_board(3);
 
         board.play(6, 11);
-
-        eprintln!("{:?}", board);
 
         assert_eq!(board.get(6, 0), 0);
         assert_eq!(board.get(6, 3), 3);
@@ -481,5 +462,27 @@ mod tests {
                 assert_eq!(y, y2);
             }
         }
+    }
+
+    #[test]
+    fn test_hash() {
+        let board1 = get_board(1);
+        let board2 = get_board(1);
+        let board3 = get_board(3);
+
+        let mut hasher = DefaultHasher::new();
+        board1.hash(&mut hasher);
+        let hash_value1 = hasher.finish();
+
+        let mut hasher = DefaultHasher::new();
+        board2.hash(&mut hasher);
+        let hash_value2 = hasher.finish();
+
+        let mut hasher = DefaultHasher::new();
+        board3.hash(&mut hasher);
+        let hash_value3 = hasher.finish();
+
+        assert_eq!(hash_value1, hash_value2);
+        assert_ne!(hash_value1, hash_value3);
     }
 }

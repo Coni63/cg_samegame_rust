@@ -21,7 +21,6 @@ pub struct TestCase {
 
 pub fn load_json(testcase: &str) -> TestCase {
     let contents = fs::read_to_string(testcase).expect("Should have been able to read the file");
-    eprintln!("{}", contents);
     let p: JSONTestCase =
         serde_json::from_str(&contents).expect("Should have been able to parse the file");
 
@@ -46,8 +45,6 @@ fn string_to_2d_array(input: &str) -> [[i8; 15]; 15] {
             board[14 - i][j] = num.parse().unwrap();
         }
     }
-
-    eprintln!("{:?}", board);
 
     board
 }
