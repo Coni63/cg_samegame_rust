@@ -1,4 +1,4 @@
-use crate::board::Board;
+use crate::{board::Board, solvers::solution::Solution};
 use fxhash::{FxHashSet, FxHasher64};
 use itertools;
 use std::{
@@ -7,21 +7,7 @@ use std::{
     time::Instant,
 };
 
-pub struct Solution {
-    pub actions: VecDeque<String>,
-    pub board: Board,
-}
-
-impl Solution {
-    pub fn new(board: Board) -> Solution {
-        Solution {
-            actions: VecDeque::new(),
-            board,
-        }
-    }
-}
-
-pub fn dfs_solve(initial_state: &Board) -> String {
+pub fn _solve(initial_state: &Board) -> String {
     let mut best_solution: Solution = Solution::new(initial_state.clone());
     let mut visited: HashSet<u64> = HashSet::default();
     let mut actions: VecDeque<String> = VecDeque::new();

@@ -5,7 +5,7 @@ use std::{
 
 use crate::board::Board;
 
-pub fn bfs_solve(initial_state: &Board) -> String {
+pub fn _solve(initial_state: &Board) -> String {
     let mut visited: HashSet<u64> = HashSet::new();
     let mut Q: VecDeque<(String, Board)> = VecDeque::new();
     Q.push_back((String::new(), initial_state.clone()));
