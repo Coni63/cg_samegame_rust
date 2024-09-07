@@ -42,6 +42,14 @@ impl Board {
         self.score
     }
 
+    pub fn get_color_count(&self) -> &[u8; 5] {
+        &self.color_counts
+    }
+
+    pub fn get_color_of_index(&self, idx: &usize) -> &i8 {
+        &self.board[*idx]
+    }
+
     pub fn play_index(&mut self, index: usize) {
         let picked_color = self.board[index];
         if picked_color < 0 {
