@@ -54,8 +54,18 @@ fn rollout(board: &Board) -> u32 {
     let mut rng = rand::thread_rng();
 
     while !copy.is_over() {
-        let p = get_probs(copy.get_color_count());
         let all_regions = copy.compute_all_regions();
+        let mut count_color = [0u8; 5];
+        for region in all_regions.iter() {
+            let first_idx = region.first().unwrap();
+            let color_region = copy.get_color_of_index(first_idx);
+
+            count_color[*color_region as usize] += region.len() as u8;
+        }
+
+        // let p = get_probs(copy.get_color_count());
+        let p = get_probs(&count_color);
+
         let color_to_pick = pick_index(&p);
 
         let all_region_of_color: Vec<Vec<usize>> = all_regions
@@ -67,10 +77,6 @@ fn rollout(board: &Board) -> u32 {
             })
             .cloned()
             .collect();
-
-        if all_region_of_color.is_empty() {
-            eprintln!("{} \n{:?}", color_to_pick, copy);
-        }
 
         let picked_region = rng.gen_range(0..all_region_of_color.len());
 
