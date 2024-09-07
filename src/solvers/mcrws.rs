@@ -3,26 +3,29 @@
 use rand::Rng;
 
 use crate::board::Board;
-use crate::solvers::solution::Solution;
 
 pub fn _solve(initial_state: &Board) -> String {
     let mut board = initial_state.clone();
     let mut actions: Vec<String> = Vec::new();
-    let K = 1000;
+    let k = 1000;
 
+    let mut depth = 1;
     while !board.is_over() {
         let mut highest_average_score = 0;
         let mut local_best_board = board.clone();
         let mut local_best_action = String::new();
 
+        eprintln!("Depth: {}", depth);
         for region in board.compute_all_regions() {
             let mut copy = board.clone();
             copy.play_region(&region);
 
             let mut average_score = 0;
-            for _ in 0..K {
+            for _ in 0..k {
                 average_score += rollout(&copy)
             }
+
+            // eprintln!("Region: {}", average_score);
 
             if average_score > highest_average_score {
                 highest_average_score = average_score;
@@ -33,8 +36,14 @@ pub fn _solve(initial_state: &Board) -> String {
             }
         }
 
+        eprintln!("Highest average score: {}", highest_average_score);
+        eprintln!("Action: {}", local_best_action);
+        eprintln!("{:?}", local_best_board);
+
         board = local_best_board;
         actions.push(local_best_action);
+
+        depth += 1;
     }
 
     itertools::join(actions, ";")
@@ -59,6 +68,10 @@ fn rollout(board: &Board) -> u32 {
             .cloned()
             .collect();
 
+        if all_region_of_color.is_empty() {
+            eprintln!("{} \n{:?}", color_to_pick, copy);
+        }
+
         let picked_region = rng.gen_range(0..all_region_of_color.len());
 
         copy.play_region(&all_region_of_color[picked_region]);
@@ -70,40 +83,32 @@ fn rollout(board: &Board) -> u32 {
 fn get_probs(colors: &[u8; 5]) -> [f32; 5] {
     let mut ans = [0f32; 5];
 
-    // Step 1: Find indices of positive values
-    let mut positive_count = 0;
-    let mut positive_index = None;
+    let color_float: Vec<(usize, f32)> = colors
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| (i, c as f32))
+        .filter(|(_, x)| *x > 0.0)
+        .collect();
 
-    for (i, &value) in colors.iter().enumerate() {
-        if value > 0 {
-            positive_count += 1;
-            if positive_count > 1 {
-                break; // No need to continue once we know there are more than one positive values
-            }
-            positive_index = Some(i);
-        }
-    }
-
-    // Step 2: If exactly one positive value is found, set its probability to 1.0
-    if positive_count == 1 {
-        ans[positive_index.unwrap()] = 1.0;
+    if color_float.len() == 1 {
+        let (i, __iterator_get_unchecked) = color_float[0];
+        ans[i] = 1.0;
         return ans;
     }
 
-    let color_float: Vec<f32> = colors.iter().map(|&c| c as f32).collect();
     let beta: f32 = 4.0;
-    let alpha: f32 = 1.0_f32 + (beta / 225.0) * color_float.iter().sum::<f32>();
+    let alpha: f32 = 1.0_f32 + (beta / 225.0) * color_float.iter().map(|(_, x)| *x).sum::<f32>();
     let theta = *colors.iter().min().unwrap() as f32 / 2.0;
 
-    let j: Vec<f32> = colors
+    let j: Vec<(usize, f32)> = color_float
         .iter()
-        .map(|x| f32::powf(*x as f32 - theta, alpha))
+        .map(|(i, x)| (*i, f32::powf(*x - theta, alpha)))
         .collect();
 
-    let denom = j.iter().sum::<f32>();
+    let denom = j.iter().map(|(_, x)| *x).sum::<f32>();
 
-    for i in 0..5 {
-        ans[i] = 0.25 * (1.0 - j[i] / denom);
+    for (i, x) in j {
+        ans[i] = (1.0 - x / denom) / (color_float.len() - 1) as f32;
     }
 
     ans
@@ -138,7 +143,7 @@ mod tests {
 
         let p = get_probs(&colors);
 
-        assert_eq!(p.iter().sum::<f32>(), 1.0);
+        assert_eq!(p, [0.2, 0.2, 0.2, 0.2, 0.2]);
 
         eprintln!("{:?}", p);
     }
@@ -150,8 +155,19 @@ mod tests {
         let p = get_probs(&colors);
 
         eprintln!("{:?}", p);
-        assert_eq!(p.iter().sum::<f32>(), 1.0);
-        assert_eq!(p[0], 1.0);
+
+        assert_eq!(p, [1.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_probs6() {
+        let colors: [u8; 5] = [90, 90, 0, 0, 0];
+
+        let p = get_probs(&colors);
+
+        eprintln!("{:?}", p);
+
+        assert_eq!(p, [0.5, 0.5, 0.0, 0.0, 0.0]);
     }
 
     #[test]
@@ -184,7 +200,6 @@ mod tests {
 
         eprintln!("{:?}", p);
 
-        assert_eq!(p.iter().sum::<f32>(), 1.0);
-        assert_eq!(p[0], 1.0);
+        assert_eq!(p, [1.0, 0.0, 0.0, 0.0, 0.0]);
     }
 }
