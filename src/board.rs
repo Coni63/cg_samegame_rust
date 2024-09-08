@@ -14,6 +14,7 @@ pub struct Board {
     board: [i8; TOTAL_CELLS],
     score: u32,
     color_counts: [u8; 5],
+    actions: Vec<usize>,
 }
 
 impl Board {
@@ -35,6 +36,7 @@ impl Board {
             board,
             score: 0,
             color_counts,
+            actions: Vec::new(),
         }
     }
 
@@ -44,6 +46,23 @@ impl Board {
 
     pub fn get_color_count(&self) -> &[u8; 5] {
         &self.color_counts
+    }
+
+    pub fn get_actions(&self) -> &[usize] {
+        &self.actions
+    }
+
+    pub fn get_actions_str(&self) -> String {
+        let strings: Vec<String> = self
+            .actions
+            .iter()
+            .map(|idx| {
+                let (x, y) = Board::to_coordinates(idx);
+                format!("{} {}", x, y)
+            })
+            .collect();
+
+        itertools::join(strings, ";")
     }
 
     pub fn get_color_of_index(&self, idx: &usize) -> &i8 {
@@ -74,6 +93,8 @@ impl Board {
         if picked_color < 0 {
             return;
         }
+
+        self.actions.push(region[0]);
 
         for i in region {
             self.board[*i] = -1;
@@ -275,6 +296,7 @@ impl Clone for Board {
             score: self.score,
             color_counts: self.color_counts,
             board: self.board,
+            actions: self.actions.clone(),
         }
     }
 }

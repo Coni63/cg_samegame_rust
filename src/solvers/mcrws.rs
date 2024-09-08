@@ -6,7 +6,6 @@ use crate::board::Board;
 
 pub fn _solve(initial_state: &Board) -> (String, u32) {
     let mut board = initial_state.clone();
-    let mut actions: Vec<String> = Vec::new();
     let k = 1000;
 
     let mut depth = 1;
@@ -18,15 +17,9 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
         if all_regions.len() == 1 {
             let region = all_regions.first().unwrap();
             board.play_region(region);
-
-            let idx = region.first().unwrap();
-            let (x, y) = Board::to_coordinates(idx);
-            actions.push(format!("{} {}", x, y));
         } else {
             let mut highest_average_score = 0;
             let mut local_best_board = board.clone();
-            let mut local_best_action = String::new();
-
             for region in board.compute_all_regions() {
                 let mut copy = board.clone();
                 copy.play_region(&region);
@@ -36,29 +29,21 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
                     average_score += rollout(&copy)
                 }
 
-                // eprintln!("Region: {}", average_score);
-
                 if average_score > highest_average_score {
                     highest_average_score = average_score;
-                    local_best_board = copy.clone();
-                    let idx = region.first().unwrap();
-                    let (x, y) = Board::to_coordinates(idx);
-                    local_best_action = format!("{} {}", x, y);
+                    local_best_board = copy;
                 }
             }
 
             eprintln!("Highest average score: {}", highest_average_score);
-            eprintln!("Action: {}", local_best_action);
-            eprintln!("{:?}", local_best_board);
-
             board = local_best_board;
-            actions.push(local_best_action);
         }
+        eprintln!("{:?}", board);
 
         depth += 1;
     }
 
-    (itertools::join(actions, ";"), board.get_score())
+    (board.get_actions_str(), board.get_score())
 }
 
 fn rollout(board: &Board) -> u32 {
