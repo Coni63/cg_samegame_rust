@@ -5,16 +5,18 @@ use rand::Rng;
 use crate::board::Board;
 
 pub fn _solve(initial_state: &Board) -> (String, u32) {
+    let mut best_probe = initial_state.clone();
     let mut board = initial_state.clone();
     let k = 1000;
 
     let mut depth = 1;
-    while !board.is_over() {
+    loop {
         let all_regions = board.compute_all_regions();
 
         eprintln!("Depth: {}", depth);
-
-        if all_regions.len() == 1 {
+        if all_regions.is_empty() {
+            break;
+        } else if all_regions.len() == 1 {
             let region = all_regions.first().unwrap();
             board.play_region(region);
         } else {
@@ -26,7 +28,11 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
 
                 let mut average_score = 0;
                 for _ in 0..k {
-                    average_score += rollout(&copy)
+                    let probe = rollout(&copy);
+                    average_score += probe.get_score();
+                    if probe.get_score() > best_probe.get_score() {
+                        best_probe = probe;
+                    }
                 }
 
                 if average_score > highest_average_score {
@@ -43,15 +49,24 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
         depth += 1;
     }
 
+    if best_probe.get_score() > board.get_score() {
+        board = best_probe;
+    }
+
     (board.get_actions_str(), board.get_score())
 }
 
-fn rollout(board: &Board) -> u32 {
+fn rollout(board: &Board) -> Board {
     let mut copy = board.clone();
     let mut rng = rand::thread_rng();
 
-    while !copy.is_over() {
+    loop {
         let all_regions = copy.compute_all_regions();
+
+        if all_regions.is_empty() {
+            break;
+        }
+
         let mut count_color = [0u8; 5];
         for region in all_regions.iter() {
             let first_idx = region.first().unwrap();
@@ -80,7 +95,7 @@ fn rollout(board: &Board) -> u32 {
         copy.play_region(&all_region_of_color[picked_region]);
     }
 
-    copy.get_score()
+    copy
 }
 
 fn get_probs(colors: &[u8; 5]) -> [f32; 5] {
