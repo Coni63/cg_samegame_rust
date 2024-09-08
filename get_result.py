@@ -9,7 +9,7 @@ with sqlite3.connect("my_database.db") as conn:
     cursor.execute("SELECT hash, actions, score FROM my_objects WHERE name LIKE 'Standard%'")
     rows = cursor.fetchall()
     for hash, action, score in rows:
-        if score > best_results.get(hash, 0):
+        if score > score_per_hash.get(hash, 0):
             score_per_hash[hash] = score
             best_results[hash] = action
 
