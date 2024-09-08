@@ -4,7 +4,7 @@ use rand::Rng;
 
 use crate::board::Board;
 
-pub fn _solve(initial_state: &Board) -> String {
+pub fn _solve(initial_state: &Board) -> (String, u32) {
     let mut board = initial_state.clone();
     let mut actions: Vec<String> = Vec::new();
     let k = 1000;
@@ -46,7 +46,7 @@ pub fn _solve(initial_state: &Board) -> String {
         depth += 1;
     }
 
-    itertools::join(actions, ";")
+    (itertools::join(actions, ";"), board.get_score())
 }
 
 fn rollout(board: &Board) -> u32 {

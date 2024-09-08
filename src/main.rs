@@ -14,6 +14,11 @@ fn main() {
     let board = Board::new(testcase.board);
     eprintln!("{:?}", board);
 
-    let ans = solver::solve(&board);
-    println!("{}", ans);
+    let (actions, score) = solver::solve(&board);
+    println!("{}", actions);
+
+    match input::save_to_db(&testcase, &actions, score) {
+        Ok(_) => eprintln!("Row inserted successfully!"),
+        Err(e) => eprintln!("Error: {:?}", e),
+    };
 }
