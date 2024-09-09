@@ -2,7 +2,7 @@
 
 use rand::Rng;
 
-use crate::board::Board;
+use crate::{board::Board, region::Region};
 
 pub fn _solve(initial_state: &Board) -> (String, u32) {
     let mut best_probe = initial_state.clone();
@@ -69,30 +69,21 @@ fn rollout(board: &Board) -> Board {
 
         let mut count_color = [0u8; 5];
         for region in all_regions.iter() {
-            let first_idx = region.first().unwrap();
-            let color_region = copy.get_color_of_index(first_idx);
-
-            count_color[*color_region as usize] += region.len() as u8;
+            count_color[region.color as usize] += region.len() as u8;
         }
 
-        // let p = get_probs(copy.get_color_count());
         let p = get_probs(&count_color);
 
         let color_to_pick = pick_index(&p);
 
-        let all_region_of_color: Vec<Vec<usize>> = all_regions
+        let all_region_of_color: Vec<&Region> = all_regions
             .iter()
-            .filter(|&region| {
-                let first_idx = region.first().unwrap();
-                let color_region = copy.get_color_of_index(first_idx);
-                color_to_pick == *color_region
-            })
-            .cloned()
+            .filter(|&region| region.color == color_to_pick)
             .collect();
 
         let picked_region = rng.gen_range(0..all_region_of_color.len());
 
-        copy.play_region(&all_region_of_color[picked_region]);
+        copy.play_region(all_region_of_color[picked_region]);
     }
 
     copy

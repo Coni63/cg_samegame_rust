@@ -5,6 +5,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use crate::region::Region;
+
 const BOARD_SIZE: usize = 16; // Using 16 for bitwise operations
 const GAME_SIZE: usize = 15; // Actual game size
 const TOTAL_CELLS: usize = BOARD_SIZE * BOARD_SIZE;
@@ -44,14 +46,6 @@ impl Board {
         self.score
     }
 
-    pub fn get_color_count(&self) -> &[u8; 5] {
-        &self.color_counts
-    }
-
-    pub fn get_actions(&self) -> &[usize] {
-        &self.actions
-    }
-
     pub fn get_actions_str(&self) -> String {
         let strings: Vec<String> = self
             .actions
@@ -88,22 +82,17 @@ impl Board {
         self.play_index(index)
     }
 
-    pub fn play_region(&mut self, region: &[usize]) {
-        let picked_color = self.board[region[0]];
-        if picked_color < 0 {
-            return;
-        }
+    pub fn play_region(&mut self, region: &Region) {
+        self.actions.push(region.first_position);
 
-        self.actions.push(region[0]);
-
-        for i in region {
+        for i in region.positions.iter() {
             self.board[*i] = -1;
         }
 
-        self.score += u32::pow((region.len() - 2) as u32, 2);
-        self.color_counts[picked_color as usize] -= region.len() as u8;
+        self.score += region.score();
+        self.color_counts[region.color as usize] -= region.len() as u8;
 
-        let (start_x, start_y, end_x) = self.get_region_boundaries(region);
+        let (start_x, start_y, end_x) = self.get_region_boundaries(&region);
         self.apply_gravity(start_x, start_y, end_x);
         self.remove_empty_columns(start_x);
 
@@ -113,29 +102,16 @@ impl Board {
         }
     }
 
-    pub fn is_over(&self) -> bool {
-        // this is not really True, we need to check that there is no group of 2 or more
-        if self.is_empty() {
-            return true;
-        }
-
-        self.has_no_more_regions()
-    }
-
     fn is_empty(&self) -> bool {
         self.board[Board::get_index(0, 0)] == -1
     }
 
-    fn has_no_more_regions(&self) -> bool {
-        self.compute_all_regions().is_empty()
-    }
-
-    fn get_region_boundaries(&self, region_removed: &[usize]) -> (usize, usize, usize) {
+    fn get_region_boundaries(&self, region_removed: &Region) -> (usize, usize, usize) {
         let mut start_x = GAME_SIZE;
         let mut end_x = 0;
         let mut start_y = GAME_SIZE;
 
-        for &index in region_removed {
+        for &index in region_removed.positions.iter() {
             let (x, y) = Board::to_coordinates(&index);
             if y < start_y {
                 start_y = y;
@@ -186,7 +162,7 @@ impl Board {
         }
     }
 
-    pub fn compute_region_index(&self, start_index: usize) -> Vec<usize> {
+    pub fn compute_region_index(&self, start_index: usize) -> Region {
         let mut visited = [false; TOTAL_CELLS];
         self.inner_compute_region(start_index, &mut visited)
     }
@@ -195,7 +171,7 @@ impl Board {
         &self,
         start_index: usize,
         visited: &mut [bool; TOTAL_CELLS],
-    ) -> Vec<usize> {
+    ) -> Region {
         let mut region = Vec::new();
         let mut stack = VecDeque::new();
         let color = self.board[start_index];
@@ -224,12 +200,16 @@ impl Board {
             }
         }
 
-        region
+        Region {
+            positions: region,
+            color,
+            first_position: start_index,
+        }
     }
 
-    pub fn compute_all_regions(&self) -> Vec<Vec<usize>> {
+    pub fn compute_all_regions(&self) -> Vec<Region> {
         let mut visited = [false; TOTAL_CELLS];
-        let mut all_regions: Vec<Vec<usize>> = Vec::new();
+        let mut all_regions: Vec<Region> = Vec::new();
 
         for x in 0..15 {
             for y in 0..15 {
@@ -238,7 +218,8 @@ impl Board {
                     continue;
                 }
 
-                if self.board[index] < 0 {
+                let color = self.board[index];
+                if color < 0 {
                     break;
                 }
 
@@ -266,7 +247,7 @@ impl Board {
         self.board[Board::get_index(x, y)]
     }
 
-    pub fn compute_region(&self, x: usize, y: usize) -> Vec<usize> {
+    pub fn compute_region(&self, x: usize, y: usize) -> Region {
         let start_index = Board::get_index(x, y);
         self.compute_region_index(start_index)
     }
@@ -379,7 +360,6 @@ mod tests {
 
         assert_eq!(board.score, 0);
         assert_eq!(board.color_counts, [45, 90, 60, 15, 15]);
-        assert!(!board.is_over());
 
         for _ in 0..12 {
             board.play(0, 0);
@@ -387,7 +367,6 @@ mod tests {
 
         assert_eq!(board.score, 4873);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
-        assert!(board.is_over());
     }
 
     #[test]
@@ -395,7 +374,6 @@ mod tests {
         let mut board = get_board(1);
         assert_eq!(board.score, 0);
         assert_eq!(board.color_counts, [45, 90, 60, 15, 15]);
-        assert!(!board.is_over());
 
         board.play(0, 1);
         board.play(0, 4);
@@ -408,7 +386,6 @@ mod tests {
 
         assert_eq!(board.score, 11607);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
-        assert!(board.is_over());
     }
 
     #[test]
@@ -416,7 +393,6 @@ mod tests {
         let mut board = get_board(2);
         assert_eq!(board.score, 0);
         assert_eq!(board.color_counts, [45, 75, 45, 30, 30]);
-        assert!(!board.is_over());
 
         board.play(5, 0);
         board.play(1, 0);
@@ -429,7 +405,6 @@ mod tests {
 
         assert_eq!(board.score, 7107);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
-        assert!(board.is_over());
     }
 
     #[test]
@@ -437,7 +412,6 @@ mod tests {
         let mut board = get_board(3);
         assert_eq!(board.score, 0);
         assert_eq!(board.color_counts, [63, 45, 45, 36, 36]);
-        assert!(!board.is_over());
 
         board.play(0, 14);
         board.play(6, 11);
@@ -456,7 +430,6 @@ mod tests {
 
         assert_eq!(board.score, 5421);
         assert_eq!(board.color_counts, [0, 0, 0, 0, 0]);
-        assert!(board.is_over());
     }
 
     #[test]

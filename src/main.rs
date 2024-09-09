@@ -4,6 +4,7 @@ use board::Board;
 
 mod board;
 mod input;
+mod region;
 mod solver;
 mod solvers;
 
