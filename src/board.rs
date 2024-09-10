@@ -289,6 +289,14 @@ impl Hash for Board {
     }
 }
 
+impl PartialEq for Board {
+    fn eq(&self, other: &Board) -> bool {
+        self.board == other.board
+    }
+}
+
+impl Eq for Board {}
+
 #[cfg(test)]
 mod tests {
     use std::hash::DefaultHasher;

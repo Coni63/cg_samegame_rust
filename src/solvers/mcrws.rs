@@ -1,13 +1,18 @@
 // https://liacs.leidenuniv.nl/~takesfw/pdf/samegame.pdf
 
+use lru::LruCache;
 use rand::Rng;
+use std::num::NonZeroUsize;
 
 use crate::{board::Board, region::Region};
 
 pub fn _solve(initial_state: &Board) -> (String, u32) {
     let mut best_probe = initial_state.clone();
     let mut board = initial_state.clone();
-    let k = 1000;
+    let k = 3000;
+
+    let mut cache_region: LruCache<Board, Vec<Region>> =
+        LruCache::new(NonZeroUsize::new(1000000).unwrap());
 
     let mut depth = 1;
     loop {
@@ -22,13 +27,13 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
         } else {
             let mut highest_average_score = 0;
             let mut local_best_board = board.clone();
-            for region in board.compute_all_regions() {
+            for region in all_regions {
                 let mut copy = board.clone();
                 copy.play_region(&region);
 
                 let mut average_score = 0;
                 for _ in 0..k {
-                    let probe = rollout(&copy);
+                    let probe = rollout(&copy, &mut cache_region);
                     average_score += probe.get_score();
                     if probe.get_score() > best_probe.get_score() {
                         best_probe = probe;
@@ -45,6 +50,7 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
             board = local_best_board;
         }
         eprintln!("{:?}", board);
+        eprintln!("Best Probe score: {}", best_probe.get_score());
 
         depth += 1;
     }
@@ -56,13 +62,12 @@ pub fn _solve(initial_state: &Board) -> (String, u32) {
     (board.get_actions_str(), board.get_score())
 }
 
-fn rollout(board: &Board) -> Board {
+fn rollout(board: &Board, cache: &mut LruCache<Board, Vec<Region>>) -> Board {
     let mut copy = board.clone();
     let mut rng = rand::thread_rng();
 
     loop {
-        let all_regions = copy.compute_all_regions();
-
+        let all_regions = cache.get_or_insert(copy.clone(), || copy.compute_all_regions());
         if all_regions.is_empty() {
             break;
         }
@@ -81,9 +86,11 @@ fn rollout(board: &Board) -> Board {
             .filter(|&region| region.color == color_to_pick)
             .collect();
 
-        let picked_region = rng.gen_range(0..all_region_of_color.len());
+        if !all_region_of_color.is_empty() {
+            let picked_region = rng.gen_range(0..all_region_of_color.len());
 
-        copy.play_region(all_region_of_color[picked_region]);
+            copy.play_region(all_region_of_color[picked_region]);
+        }
     }
 
     copy
