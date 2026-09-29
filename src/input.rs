@@ -81,3 +81,15 @@ pub fn save_to_db(testcase: &TestCase, solution: &String, score: u32) -> Result<
 
     Ok(())
 }
+
+/// Best (actions, score) stored in the database for this puzzle hash, if any.
+pub fn load_best(hash: i64) -> Result<Option<(String, u32)>> {
+    let conn = Connection::open("my_database.db")?;
+    let mut stmt =
+        conn.prepare("SELECT actions, score FROM my_objects WHERE hash = ?1 ORDER BY score DESC LIMIT 1")?;
+    let mut rows = stmt.query(params![hash])?;
+    match rows.next()? {
+        Some(row) => Ok(Some((row.get(0)?, row.get(1)?))),
+        None => Ok(None),
+    }
+}
